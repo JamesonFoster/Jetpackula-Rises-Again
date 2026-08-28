@@ -158,7 +158,13 @@ public class PlayerMovement : MonoBehaviour
 
         GlobalPlayerVars.JetFuel =
             Mathf.Max(GlobalPlayerVars.JetFuel, 0f);
+
+        GlobalPlayerVars.ArmState = 'Z';
     }
+    else
+        {
+            GlobalPlayerVars.ArmState = 'R';
+        }
 
 
     // -------------------------

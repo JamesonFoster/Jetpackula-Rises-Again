@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 59669443}
   - component: {fileID: 59669445}
   - component: {fileID: 59669444}
+  - component: {fileID: 59669446}
   m_Layer: 5
   m_Name: ARMS
   m_TagString: Untagged
@@ -146,7 +147,7 @@ RectTransform:
   m_GameObject: {fileID: 59669442}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 6.8006, y: 1, z: 1}
+  m_LocalScale: {x: 6.6607, y: 6.6607, z: 6.6607}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1899205378}
@@ -176,7 +177,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 0}
+  m_Texture: {fileID: 2800000, guid: 9c11f07695f312a4bb4e8987e5cf9410, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -191,6 +192,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 59669442}
   m_CullTransparentMesh: 1
+--- !u!114 &59669446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 59669442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2aef1dc7a27d1d64b92f6d9f29705bd0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  restingSprite: {fileID: 2800000, guid: 9c11f07695f312a4bb4e8987e5cf9410, type: 3}
+  blockingSprite: {fileID: 2800000, guid: 5977f0d8b27d5ec4d9cbcf1e547a4ae4, type: 3}
+  attackingSprite: {fileID: 2800000, guid: 5955b19787d6056478d825fe356aab11, type: 3}
+  zoomingSprite: {fileID: 2800000, guid: 83a21cf7dc3f5b742b2899626ea1996d, type: 3}
 --- !u!1 &166332449
 GameObject:
   m_ObjectHideFlags: 0

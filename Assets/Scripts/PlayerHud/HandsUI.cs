@@ -1,13 +1,16 @@
 using UnityEngine;
+using TMPro;
+using Unity.Collections;
+using UnityEngine.UI;
 
 public class HandsUI : MonoBehaviour
 {
     private RawImage image;
     private char curAS;
-    public Sprite restingSprite;
-    public Sprite blockingSprite;
-    public Sprite attackingSprite;
-    public Sprite zoomingSprite;
+    public Texture restingSprite;
+    public Texture blockingSprite;
+    public Texture attackingSprite;
+    public Texture zoomingSprite;
     void Awake()
     {
         image = GetComponent<RawImage>();
@@ -15,9 +18,21 @@ public class HandsUI : MonoBehaviour
     void Start()
     {
         curAS = GlobalPlayerVars.ArmState;
-        if (curAS = 'R')
+        if (curAS == 'R')
         {
-            image.sprite = restingSprite
+            image.texture = restingSprite;
+        }
+        else if (curAS == 'B')
+        {
+            image.texture = blockingSprite;
+        }
+        else if (curAS == 'A')
+        {
+            image.texture = attackingSprite;
+        }
+        else if (curAS == 'Z')
+        {
+            image.texture = zoomingSprite;
         }
     }
 
@@ -25,9 +40,21 @@ public class HandsUI : MonoBehaviour
     void Update()
     {
         curAS = GlobalPlayerVars.ArmState;
-        if (curAS = 'R')
+        if (curAS == 'R')
         {
-            image.sprite = restingSprite
+            image.texture = restingSprite;
+        }
+        else if (curAS == 'B')
+        {
+            image.texture = blockingSprite;
+        }
+        else if (curAS == 'A')
+        {
+            image.texture = attackingSprite;
+        }
+        else if (curAS == 'Z')
+        {
+            image.texture = zoomingSprite;
         }
     }
 }
