@@ -1,141 +1,80 @@
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections.Generic;
 
 public class BasicEnemyControl : MonoBehaviour
 {
-    // =========================================================
-    // ENEMY SETTINGS
-    // =========================================================
-
-    public bool hasGun = false;
-    public bool hasStaff = false;
-    public int grenadeCount = 0;
-
     public int eneHealth = 100;
 
-    // The current destination for the enemy.
-    public Transform targetMove;
+    public bool hasGun;
+    public bool hasStaff;
+    public int grenadeCount;
 
-    // The player.
+    public Transform targetMove;
+    public Transform targetSearch;
     public Transform player;
 
-    // 0 = Dead
-    // 1 = Searching
-    // 2 = Shooting
-    // 3 = Hiding
-    // 4 = Grabbed
-    // 5 = Swinging
-    // 6 = Grenade
+    public Vector3? lastSeePlayer;
+
+    // 0 Dead, 1 Search, 2 Combat, 3 Hide, 4 Grabbed, 5 Staff
     public int eneState = 1;
-
-
-    // =========================================================
-    // NAVIGATION
-    // =========================================================
 
     private NavMeshAgent agent;
 
-    public float stoppingDistance = 1.0f;
+    public float stoppingDistance = 1f;
 
-
-    // =========================================================
-    // PLAYER DETECTION
-    // =========================================================
-
+    // Vision
     public float sightRange = 25f;
-
-    // Field of view in degrees.
     public float sightAngle = 120f;
-
-    // Objects on these layers block enemy vision.
     public LayerMask sightBlockMask;
+    public float eyeHeight = 1.5f;
+    public float targetEyeHeight = 1f;
 
-
-    // =========================================================
-    // SEARCHING / WANDERING
-    // =========================================================
-
+    // Wandering
     public float wanderRadius = 10f;
     public float wanderWaitTime = 5f;
-
     private float wanderTimer;
 
+    // Last player search
+    public float lastSeeSearchTime = 10f;
+    private float lastSeeTimer;
 
-    // =========================================================
-    // HIDING
-    // =========================================================
+    public float searchTurnSpeed = 45f;
 
-    public float hidingDistance = 15f;
-
+    // Hiding
+    public float hidingTime = 30f;
+    private float hidingTimer;
     private GameObject[] hidingSpots;
-
     private GameObject currentHidingSpot;
+    private float hidingRotation;
 
-
-    // =========================================================
-    // CROUCHING
-    // =========================================================
-
+    // Crouching
     public float crouchDistance = 25f;
-
     private GameObject[] crouchSpots;
-
     private GameObject currentCrouchSpot;
+    private bool isInCrouchSpot;
 
-    private bool isInCrouchSpot = false;
-
-
-    // =========================================================
-    // SHOOTING
-    // =========================================================
-
+    // Shooting
     public float shootingDistance = 20f;
-
     public float shootCooldown = 1f;
-
     private float shootTimer;
 
-
-    // =========================================================
-    // STAFF
-    // =========================================================
-
+    // Staff
     public float staffAttackDistance = 2.5f;
-
     public float staffAttackCooldown = 1.2f;
-
     private float staffAttackTimer;
 
-
-    // =========================================================
-    // GRABBED
-    // =========================================================
-
+    // Grabbed
     public float grabbedTime = 3f;
-
     private float grabbedTimer;
 
-
-    // =========================================================
-    // GRENADE
-    // =========================================================
-
+    // Grenade
     public float grenadeDistance = 15f;
-
-    // The enemy gets a grenade opportunity every 30 seconds.
-    public float grenadeCheckTime = 30f;
-
+    public float grenadeCooldown = 30f;
     private float grenadeTimer;
 
     public GameObject grenadePrefab;
-
     public Transform grenadeSpawnPoint;
 
-
-    // =========================================================
-    // START
-    // =========================================================
 
     private void Start()
     {
@@ -143,73 +82,36 @@ public class BasicEnemyControl : MonoBehaviour
 
         if (agent == null)
         {
-            Debug.LogError(
-                gameObject.name +
-                " needs a NavMeshAgent component."
-            );
+            Debug.LogError(gameObject.name + " needs a NavMeshAgent.");
+            enabled = false;
+            return;
         }
 
-        // -----------------------------------------------------
-        // Find every hiding spot in the scene by tag.
-        // -----------------------------------------------------
+        agent.stoppingDistance = stoppingDistance;
 
         hidingSpots =
             GameObject.FindGameObjectsWithTag("EnemyHidingSpot");
 
-        // -----------------------------------------------------
-        // Find every crouching spot in the scene by tag.
-        // -----------------------------------------------------
-
         crouchSpots =
             GameObject.FindGameObjectsWithTag("EnemyCrouchSpot");
-
-        // -----------------------------------------------------
-        // Randomize timers so every enemy doesn't act at
-        // exactly the same time.
-        // -----------------------------------------------------
 
         wanderTimer =
             Random.Range(0f, wanderWaitTime);
 
-        grenadeTimer =
-            Random.Range(0f, grenadeCheckTime);
-
-        shootTimer = 0f;
-
-        staffAttackTimer = 0f;
-
-        grabbedTimer = 0f;
-
-        if (agent != null)
-        {
-            agent.stoppingDistance = stoppingDistance;
-        }
+        grenadeTimer = 0f;
     }
 
 
-    // =========================================================
-    // UPDATE
-    // =========================================================
-
     private void Update()
     {
-        // -----------------------------------------------------
-        // Death check.
-        // -----------------------------------------------------
-
         if (eneHealth <= 0)
         {
             eneHealth = 0;
-
-            if (eneState != 0)
-            {
-                eneState = 0;
-            }
+            eneState = 0;
         }
 
-        // -----------------------------------------------------
-        // State machine.
-        // -----------------------------------------------------
+        if (grenadeTimer > 0f)
+            grenadeTimer -= Time.deltaTime;
 
         switch (eneState)
         {
@@ -222,7 +124,7 @@ public class BasicEnemyControl : MonoBehaviour
                 break;
 
             case 2:
-                Shooting();
+                Combat();
                 break;
 
             case 3:
@@ -236,187 +138,186 @@ public class BasicEnemyControl : MonoBehaviour
             case 5:
                 Swinging();
                 break;
-
-            case 6:
-                Grenade();
-                break;
         }
     }
 
 
-    // =========================================================
-    // 0 - DEAD
-    // =========================================================
-
-    private void Dead()
+    // Basic NavMesh movement.
+    private bool TravelToBasic()
     {
-        if (agent != null)
-        {
-            agent.isStopped = true;
-        }
-
-        // Put your death animation here.
-
-        // Example:
-        // animator.SetTrigger("Dead");
-    }
-
-
-    // =========================================================
-    // 1 - SEARCHING
-    // =========================================================
-
-    private void Searching()
-    {
-        if (agent == null)
-            return;
+        if (targetMove == null)
+            return false;
 
         agent.isStopped = false;
+        agent.SetDestination(targetMove.position);
 
-        // -----------------------------------------------------
-        // Check whether player can be seen.
-        // -----------------------------------------------------
+        if (agent.pathPending)
+            return false;
 
-        if (CanSeePlayer())
+        return agent.remainingDistance <= agent.stoppingDistance;
+    }
+
+
+    // Case 1.
+    private void Searching()
+    {
+        agent.isStopped = false;
+
+        if (player != null &&
+            targetSearch == player)
         {
-            OnPlayerSpotted();
+            if (CanSeeTarget(player))
+            {
+                SeePlayer();
+                return;
+            }
+
+            if (lastSeePlayer.HasValue)
+            {
+                SearchLastPlayerPosition();
+                return;
+            }
+        }
+
+        if (targetSearch != null)
+        {
+            if (CanSeeTarget(targetSearch))
+            {
+                targetMove = targetSearch;
+                OnTargetFound();
+                return;
+            }
+        }
+
+        Wander();
+    }
+
+
+    private void SearchLastPlayerPosition()
+    {
+        agent.isStopped = false;
+
+        agent.SetDestination(lastSeePlayer.Value);
+
+        if (agent.pathPending)
+            return;
+
+        if (agent.remainingDistance >
+            agent.stoppingDistance)
+        {
             return;
         }
 
-        // -----------------------------------------------------
-        // Wander around the area.
-        // -----------------------------------------------------
+        agent.isStopped = true;
 
-        wanderTimer -= Time.deltaTime;
+        LookAtPosition(lastSeePlayer.Value);
 
-        if (wanderTimer <= 0f)
+        if (CanSeeTarget(player))
         {
-            PickRandomDestination();
+            SeePlayer();
+            return;
+        }
 
-            wanderTimer =
-                wanderWaitTime +
-                Random.Range(0f, 3f);
+        lastSeeTimer -= Time.deltaTime;
+
+        transform.Rotate(
+            Vector3.up,
+            searchTurnSpeed * Time.deltaTime
+        );
+
+        if (lastSeeTimer <= 0f)
+        {
+            lastSeePlayer = null;
+            targetMove = null;
+            agent.isStopped = false;
+            wanderTimer = 0f;
         }
     }
 
 
-    // =========================================================
-    // PLAYER SPOTTED
-    // =========================================================
-
-    private void OnPlayerSpotted()
+    private void SeePlayer()
     {
         if (player == null)
             return;
 
-        float distance =
-            Vector3.Distance(
-                transform.position,
-                player.position
-            );
-
-        // -----------------------------------------------------
-        // Very close + staff = melee attack.
-        // -----------------------------------------------------
-
-        if (hasStaff &&
-            distance <= staffAttackDistance)
-        {
-            eneState = 5;
-            return;
-        }
-
-        // -----------------------------------------------------
-        // Grenade.
-        // -----------------------------------------------------
-
-        if (grenadeCount > 0 &&
-            distance <= grenadeDistance)
-        {
-            grenadeTimer -= Time.deltaTime;
-
-            if (grenadeTimer <= 0f)
-            {
-                eneState = 6;
-                return;
-            }
-        }
-
-        // -----------------------------------------------------
-        // Gun.
-        // -----------------------------------------------------
-
-        if (hasGun &&
-            distance <= shootingDistance)
-        {
-            GameObject bestCrouchSpot =
-                FindBestCrouchSpot();
-
-            if (bestCrouchSpot != null)
-            {
-                currentCrouchSpot = bestCrouchSpot;
-
-                targetMove =
-                    currentCrouchSpot.transform;
-
-                isInCrouchSpot = false;
-
-                eneState = 2;
-
-                agent.isStopped = false;
-
-                agent.SetDestination(
-                    targetMove.position
-                );
-
-                return;
-            }
-
-            // If there is no crouch spot,
-            // the enemy can still attack.
-            eneState = 2;
-            return;
-        }
-
-        // -----------------------------------------------------
-        // If they can't attack yet, chase the player.
-        // -----------------------------------------------------
+        lastSeePlayer = player.position;
+        lastSeeTimer = lastSeeSearchTime;
 
         targetMove = player;
 
-        agent.isStopped = false;
+        // Staff enemies hide when they first see the player.
+        if (hasStaff)
+        {
+            currentHidingSpot = FindBestHidingSpot();
 
-        agent.SetDestination(
-            player.position
-        );
+            if (currentHidingSpot != null)
+            {
+                eneState = 3;
+                return;
+            }
+        }
+
+        // Enemies with a gun or grenade enter combat.
+        if (hasGun || grenadeCount > 0)
+        {
+            PrepareCombat();
+            return;
+        }
+
+        // No weapon. Chase the player.
+        TravelToBasic();
     }
 
 
-    // =========================================================
-    // 2 - SHOOTING
-    // =========================================================
-
-    private void Shooting()
+    private void OnTargetFound()
     {
-        if (player == null)
+        if (targetMove == null)
+            return;
+
+        if (targetMove == player)
+        {
+            SeePlayer();
+            return;
+        }
+
+        TravelToBasic();
+    }
+
+
+    private void Wander()
+    {
+        wanderTimer -= Time.deltaTime;
+
+        if (wanderTimer > 0f)
+            return;
+
+        PickRandomDestination();
+
+        wanderTimer =
+            wanderWaitTime +
+            Random.Range(0f, 3f);
+    }
+
+
+    // Case 2.
+    private void Combat()
+    {
+        if (player == null ||
+            (!hasGun && grenadeCount <= 0))
         {
             ReturnToSearching();
             return;
         }
 
-        if (!hasGun)
+        // Player is visible.
+        if (CanSeeTarget(player))
         {
-            ReturnToSearching();
-            return;
+            lastSeePlayer = player.position;
+            lastSeeTimer = lastSeeSearchTime;
         }
-
-        // -----------------------------------------------------
-        // Player no longer visible.
-        // -----------------------------------------------------
-
-        if (!CanSeePlayer())
+        else
         {
-            ReturnToSearching();
+            SearchInCombat();
             return;
         }
 
@@ -426,10 +327,7 @@ public class BasicEnemyControl : MonoBehaviour
                 player.position
             );
 
-        // -----------------------------------------------------
-        // Staff if player gets too close.
-        // -----------------------------------------------------
-
+        // Staff gets priority when very close.
         if (hasStaff &&
             distance <= staffAttackDistance)
         {
@@ -437,484 +335,472 @@ public class BasicEnemyControl : MonoBehaviour
             return;
         }
 
-        // -----------------------------------------------------
-        // Player is too far away.
-        // -----------------------------------------------------
-
-        if (distance > shootingDistance)
+        // Grenade can be used even if the enemy has a gun.
+        if (grenadeCount > 0 &&
+            grenadeTimer <= 0f &&
+            distance <= grenadeDistance)
         {
-            isInCrouchSpot = false;
+            if (currentCrouchSpot == null)
+            {
+                PrepareCrouchSpot();
+            }
 
-            currentCrouchSpot = null;
+            if (currentCrouchSpot != null)
+            {
+                if (!isInCrouchSpot)
+                {
+                    targetMove =
+                        currentCrouchSpot.transform;
 
-            ReturnToSearching();
+                    if (!TravelToBasic())
+                        return;
+
+                    isInCrouchSpot = true;
+                }
+
+                agent.isStopped = true;
+                LookAtTarget(player);
+
+                ThrowGrenade();
+
+                grenadeCount--;
+                grenadeTimer = grenadeCooldown;
+
+                ReturnToSearching();
+                return;
+            }
+        }
+
+        // Gun attack.
+        if (hasGun &&
+            distance <= shootingDistance)
+        {
+            if (currentCrouchSpot == null)
+            {
+                PrepareCrouchSpot();
+            }
+
+            if (currentCrouchSpot != null &&
+                !isInCrouchSpot)
+            {
+                targetMove =
+                    currentCrouchSpot.transform;
+
+                if (!TravelToBasic())
+                    return;
+
+                isInCrouchSpot = true;
+            }
+
+            agent.isStopped = true;
+
+            LookAtTarget(player);
+
+            shootTimer -= Time.deltaTime;
+
+            if (shootTimer <= 0f)
+            {
+                ShootAtPlayer();
+                shootTimer = shootCooldown;
+            }
 
             return;
         }
 
-        // -----------------------------------------------------
-        // Move to crouching position.
-        // -----------------------------------------------------
+        // Armed enemy, but target is too far away.
+        targetMove = player;
+        TravelToBasic();
+    }
+
+
+    private void SearchInCombat()
+    {
+        lastSeeTimer -= Time.deltaTime;
+
+        if (lastSeeTimer <= 0f)
+        {
+            lastSeePlayer = null;
+            ReturnToSearching();
+            return;
+        }
+
+        // Try to reach a crouch spot first.
+        if (currentCrouchSpot == null)
+        {
+            PrepareCombat();
+        }
 
         if (currentCrouchSpot != null &&
             !isInCrouchSpot)
         {
-            float distanceToSpot =
-                Vector3.Distance(
-                    transform.position,
-                    currentCrouchSpot.transform.position
-                );
-
-            // Still travelling.
-            if (distanceToSpot > 1.5f)
-            {
-                agent.isStopped = false;
-
-                agent.SetDestination(
-                    currentCrouchSpot.transform.position
-                );
-
-                return;
-            }
-
-            // Arrived.
-            isInCrouchSpot = true;
-
-            agent.isStopped = true;
-        }
-
-        // -----------------------------------------------------
-        // If there is no crouch spot, stop and shoot.
-        // -----------------------------------------------------
-
-        if (currentCrouchSpot == null)
-        {
-            agent.isStopped = true;
-        }
-
-        // -----------------------------------------------------
-        // Face the player.
-        // -----------------------------------------------------
-
-        LookAtPlayer();
-
-        // -----------------------------------------------------
-        // Shoot.
-        // -----------------------------------------------------
-
-        shootTimer -= Time.deltaTime;
-
-        if (shootTimer <= 0f)
-        {
-            ShootAtPlayer();
-
-            shootTimer = shootCooldown;
-        }
-    }
-
-
-    // =========================================================
-    // 3 - HIDING
-    // =========================================================
-
-    private void Hiding()
-    {
-        if (agent == null)
-            return;
-
-        // -----------------------------------------------------
-        // If we don't currently have a hiding spot,
-        // find the best one.
-        // -----------------------------------------------------
-
-        if (currentHidingSpot == null)
-        {
-            currentHidingSpot =
-                FindBestHidingSpot();
-
-            if (currentHidingSpot == null)
-            {
-                ReturnToSearching();
-                return;
-            }
-
             targetMove =
-                currentHidingSpot.transform;
+                currentCrouchSpot.transform;
+
+            if (!TravelToBasic())
+                return;
+
+            isInCrouchSpot = true;
         }
-
-        // -----------------------------------------------------
-        // Go to hiding spot.
-        // -----------------------------------------------------
-
-        float distanceToSpot =
-            Vector3.Distance(
-                transform.position,
-                currentHidingSpot.transform.position
-            );
-
-        if (distanceToSpot > 1.5f)
-        {
-            agent.isStopped = false;
-
-            agent.SetDestination(
-                currentHidingSpot.transform.position
-            );
-
-            return;
-        }
-
-        // -----------------------------------------------------
-        // Enemy is now hiding.
-        // -----------------------------------------------------
 
         agent.isStopped = true;
 
-        // -----------------------------------------------------
-        // Check for player.
-        // -----------------------------------------------------
+        // Search around instead of wandering.
+        transform.Rotate(
+            Vector3.up,
+            searchTurnSpeed * Time.deltaTime
+        );
 
-        if (CanSeePlayer())
+        if (CanSeeTarget(player))
         {
-            float playerDistance =
-                Vector3.Distance(
-                    transform.position,
-                    player.position
-                );
-
-            // Player got close enough.
-            if (playerDistance <= hidingDistance)
-            {
-                // Use staff if close.
-                if (hasStaff &&
-                    playerDistance <= staffAttackDistance)
-                {
-                    eneState = 5;
-
-                    ReleaseHidingSpot();
-
-                    return;
-                }
-
-                // Use gun.
-                if (hasGun)
-                {
-                    currentCrouchSpot =
-                        FindBestCrouchSpot();
-
-                    if (currentCrouchSpot != null)
-                    {
-                        targetMove =
-                            currentCrouchSpot.transform;
-
-                        isInCrouchSpot = false;
-
-                        eneState = 2;
-
-                        ReleaseHidingSpot();
-
-                        return;
-                    }
-
-                    eneState = 2;
-
-                    ReleaseHidingSpot();
-
-                    return;
-                }
-
-                // No weapon.
-                // Run toward the player.
-                targetMove = player;
-
-                agent.isStopped = false;
-
-                agent.SetDestination(
-                    player.position
-                );
-
-                ReleaseHidingSpot();
-            }
+            lastSeePlayer = player.position;
+            lastSeeTimer = lastSeeSearchTime;
         }
     }
 
 
-    // =========================================================
-    // 4 - GRABBED
-    // =========================================================
-
-    private void Grabbed()
+    private void PrepareCombat()
     {
-        if (agent != null)
+        if (currentCrouchSpot == null)
         {
-            agent.isStopped = true;
+            PrepareCrouchSpot();
         }
 
-        grabbedTimer -= Time.deltaTime;
-
-        if (grabbedTimer <= 0f)
-        {
-            grabbedTimer = grabbedTime;
-
-            eneState = 1;
-
-            if (agent != null)
-            {
-                agent.isStopped = false;
-            }
-        }
+        eneState = 2;
     }
 
 
-    // =========================================================
-    // 5 - SWINGING
-    // =========================================================
-
-    private void Swinging()
+    private bool PrepareCrouchSpot()
     {
-        if (player == null)
-        {
-            ReturnToSearching();
-            return;
-        }
+        currentCrouchSpot =
+            FindBestCrouchSpot();
 
+        if (currentCrouchSpot == null)
+            return false;
+
+        targetMove =
+            currentCrouchSpot.transform;
+
+        isInCrouchSpot = false;
+
+        return true;
+    }
+
+
+    // Case 3.
+    private void Hiding()
+    {
         if (!hasStaff)
         {
             ReturnToSearching();
             return;
         }
 
+        if (currentHidingSpot == null)
+        {
+            ReturnToSearching();
+            return;
+        }
+
+        targetMove = currentHidingSpot.transform;
+
+        // Travel to the hiding spot.
+        if (!TravelToBasic())
+            return;
+
+        // Just arrived at the hiding spot.
+        if (hidingTimer <= 0f)
+        {
+            agent.isStopped = true;
+
+            transform.rotation =
+                Quaternion.Euler(
+                    0f,
+                    hidingRotation,
+                    0f
+                );
+
+            hidingTimer = hidingTime;
+        }
+
+        // Hiding sensor: if they see the player,
+        // immediately leave hiding and swing.
+        if (player != null &&
+            CanSeeTarget(player))
+        {
+            lastSeePlayer = player.position;
+            lastSeeTimer = lastSeeSearchTime;
+
+            ReleaseHidingSpot();
+
+            eneState = 5;
+            return;
+        }
+
+        hidingTimer -= Time.deltaTime;
+
+        // Finished hiding.
+        if (hidingTimer <= 0f)
+        {
+            ReleaseHidingSpot();
+            ReturnToSearching();
+        }
+    }
+
+
+    private void StartHiding()
+    {
+        if (currentHidingSpot == null)
+            return;
+
+        hidingTimer = 0f;
+
+        // Turn exactly 180 degrees from the
+        // direction they were facing when entering.
+        hidingRotation =
+            transform.eulerAngles.y + 180f;
+
+        eneState = 3;
+    }
+
+    // Case 4.
+    private void Grabbed()
+    {
+        agent.isStopped = true;
+
+        grabbedTimer -= Time.deltaTime;
+
+        if (grabbedTimer <= 0f)
+            ReturnToSearching();
+    }
+
+
+    // Case 5.
+    private void Swinging()
+    {
+        if (player == null || !hasStaff)
+        {
+            ReturnToSearching();
+            return;
+        }
+
+        if (CanSeeTarget(player))
+        {
+            lastSeePlayer = player.position;
+            lastSeeTimer = lastSeeSearchTime;
+        }
+        else
+        {
+            // Use the shared last-player-position search.
+            if (lastSeePlayer.HasValue)
+            {
+                lastSeeTimer -= Time.deltaTime;
+
+                if (lastSeeTimer <= 0f)
+                {
+                    lastSeePlayer = null;
+                    ReturnToSearching();
+                    return;
+                }
+
+                targetMove = null;
+                agent.isStopped = false;
+
+                agent.SetDestination(
+                    lastSeePlayer.Value
+                );
+
+                if (!agent.pathPending &&
+                    agent.remainingDistance <=
+                    agent.stoppingDistance)
+                {
+                    agent.isStopped = true;
+
+                    transform.Rotate(
+                        Vector3.up,
+                        searchTurnSpeed *
+                        Time.deltaTime
+                    );
+                }
+
+                if (CanSeeTarget(player))
+                {
+                    lastSeePlayer =
+                        player.position;
+                }
+            }
+
+            return;
+        }
+
         float distance =
             Vector3.Distance(
                 transform.position,
                 player.position
             );
 
-        // -----------------------------------------------------
-        // Player is too far away.
-        // -----------------------------------------------------
-
-        if (distance > staffAttackDistance + 1f)
+        if (distance >
+            staffAttackDistance + 1f)
         {
             targetMove = player;
-
-            agent.isStopped = false;
-
-            agent.SetDestination(
-                player.position
-            );
-
+            TravelToBasic();
             return;
         }
 
-        // -----------------------------------------------------
-        // Stop and attack.
-        // -----------------------------------------------------
-
         agent.isStopped = true;
 
-        LookAtPlayer();
+        LookAtTarget(player);
 
         staffAttackTimer -= Time.deltaTime;
 
         if (staffAttackTimer <= 0f)
         {
             StaffAttack();
-
             staffAttackTimer =
                 staffAttackCooldown;
         }
     }
 
 
-    // =========================================================
-    // 6 - GRENADE
-    // =========================================================
-
-    private void Grenade()
+    private bool CanSeeTarget(Transform target)
     {
-        if (player == null)
-        {
-            ReturnToSearching();
-            return;
-        }
+        if (target == null)
+            return false;
 
-        if (grenadeCount <= 0)
-        {
-            ReturnToSearching();
-            return;
-        }
+        Vector3 eye =
+            transform.position +
+            Vector3.up * eyeHeight;
 
-        if (!CanSeePlayer())
-        {
-            ReturnToSearching();
-            return;
-        }
+        Vector3 targetPosition =
+            target.position +
+            Vector3.up * targetEyeHeight;
+
+        Vector3 direction =
+            targetPosition - eye;
 
         float distance =
-            Vector3.Distance(
-                transform.position,
-                player.position
-            );
+            direction.magnitude;
 
-        if (distance > grenadeDistance)
+        if (distance > sightRange)
+            return false;
+
+        direction.Normalize();
+
+        if (Vector3.Angle(
+            transform.forward,
+            direction) >
+            sightAngle * 0.5f)
         {
-            ReturnToSearching();
-            return;
+            return false;
         }
 
-        // -----------------------------------------------------
-        // Stop.
-        // -----------------------------------------------------
+        if (Physics.Raycast(
+            eye,
+            direction,
+            out RaycastHit hit,
+            distance,
+            sightBlockMask))
+        {
+            return hit.transform == target ||
+                   hit.transform.IsChildOf(target);
+        }
 
-        agent.isStopped = true;
-
-        // -----------------------------------------------------
-        // Face player.
-        // -----------------------------------------------------
-
-        LookAtPlayer();
-
-        // -----------------------------------------------------
-        // Throw.
-        // -----------------------------------------------------
-
-        ThrowGrenade();
-
-        grenadeCount--;
-
-        grenadeTimer =
-            grenadeCheckTime;
-
-        ReturnToSearching();
+        return true;
     }
 
 
-    // =========================================================
-    // FIND BEST HIDING SPOT
-    // =========================================================
+    private void PickRandomDestination()
+    {
+        Vector3 randomPosition =
+            transform.position +
+            Random.insideUnitSphere *
+            wanderRadius;
+
+        if (NavMesh.SamplePosition(
+            randomPosition,
+            out NavMeshHit hit,
+            wanderRadius,
+            NavMesh.AllAreas))
+        {
+            targetMove = null;
+            agent.isStopped = false;
+
+            agent.SetDestination(
+                hit.position
+            );
+        }
+    }
+
 
     private GameObject FindBestHidingSpot()
     {
-        GameObject bestSpot = null;
-
-        float bestPathDistance =
-            Mathf.Infinity;
-
-        if (hidingSpots == null)
-            return null;
-
-        foreach (GameObject spot in hidingSpots)
-        {
-            if (spot == null)
-                continue;
-
-            // -------------------------------------------------
-            // Calculate actual NavMesh path.
-            // -------------------------------------------------
-
-            NavMeshPath path =
-                new NavMeshPath();
-
-            bool pathFound =
-                agent.CalculatePath(
-                    spot.transform.position,
-                    path
-                );
-
-            if (!pathFound)
-                continue;
-
-            if (path.status != NavMeshPathStatus.PathComplete)
-                continue;
-
-            // -------------------------------------------------
-            // Calculate total path length.
-            // -------------------------------------------------
-
-            float pathDistance =
-                GetPathLength(path);
-
-            if (pathDistance < bestPathDistance)
-            {
-                bestPathDistance = pathDistance;
-
-                bestSpot = spot;
-            }
-        }
-
-        return bestSpot;
+        return FindBestSpot(
+            hidingSpots,
+            Mathf.Infinity,
+            false
+        );
     }
 
-
-    // =========================================================
-    // FIND BEST CROUCH SPOT
-    // =========================================================
 
     private GameObject FindBestCrouchSpot()
     {
+        return FindBestSpot(
+            crouchSpots,
+            crouchDistance,
+            true
+        );
+    }
+
+
+    private GameObject FindBestSpot(
+        GameObject[] spots,
+        float maxDistance,
+        bool needsPlayerSight)
+    {
         GameObject bestSpot = null;
+        float bestDistance = Mathf.Infinity;
 
-        float bestPathDistance =
-            Mathf.Infinity;
-
-        if (crouchSpots == null)
+        if (spots == null)
             return null;
 
-        foreach (GameObject spot in crouchSpots)
+        foreach (GameObject spot in spots)
         {
             if (spot == null)
                 continue;
 
-            // -------------------------------------------------
-            // Check that the spot can actually be reached.
-            // -------------------------------------------------
-
             NavMeshPath path =
                 new NavMeshPath();
 
-            bool pathFound =
-                agent.CalculatePath(
-                    spot.transform.position,
-                    path
-                );
-
-            if (!pathFound)
-                continue;
-
-            if (path.status != NavMeshPathStatus.PathComplete)
-                continue;
-
-            // -------------------------------------------------
-            // Check distance.
-            // -------------------------------------------------
-
-            float pathDistance =
-                GetPathLength(path);
-
-            if (pathDistance > crouchDistance)
-                continue;
-
-            // -------------------------------------------------
-            // Check if player can be seen from this spot.
-            // -------------------------------------------------
-
-            if (player != null)
+            if (!agent.CalculatePath(
+                spot.transform.position,
+                path))
             {
-                if (!CanSeePlayerFromPosition(
-                    spot.transform.position))
-                {
-                    continue;
-                }
+                continue;
             }
 
-            // -------------------------------------------------
-            // Pick shortest reachable path.
-            // -------------------------------------------------
-
-            if (pathDistance < bestPathDistance)
+            if (path.status !=
+                NavMeshPathStatus.PathComplete)
             {
-                bestPathDistance = pathDistance;
+                continue;
+            }
 
+            float distance =
+                GetPathLength(path);
+
+            if (distance > maxDistance)
+                continue;
+
+            if (needsPlayerSight &&
+                player != null &&
+                !CanSeeTargetFromPosition(
+                    spot.transform.position,
+                    player))
+            {
+                continue;
+            }
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
                 bestSpot = spot;
             }
         }
@@ -923,18 +809,58 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // =========================================================
-    // GET NAVMESH PATH LENGTH
-    // =========================================================
-
-    private float GetPathLength(NavMeshPath path)
+    private bool CanSeeTargetFromPosition(
+        Vector3 position,
+        Transform target)
     {
-        float length = 0f;
+        if (target == null)
+            return false;
 
+        Vector3 eye =
+            position +
+            Vector3.up * eyeHeight;
+
+        Vector3 targetPosition =
+            target.position +
+            Vector3.up * targetEyeHeight;
+
+        Vector3 direction =
+            targetPosition - eye;
+
+        float distance =
+            direction.magnitude;
+
+        if (distance > sightRange)
+            return false;
+
+        direction.Normalize();
+
+        if (Physics.Raycast(
+            eye,
+            direction,
+            out RaycastHit hit,
+            distance,
+            sightBlockMask))
+        {
+            return hit.transform == target ||
+                   hit.transform.IsChildOf(target);
+        }
+
+        return true;
+    }
+
+
+    private float GetPathLength(
+        NavMeshPath path)
+    {
         if (path.corners.Length < 2)
             return Mathf.Infinity;
 
-        for (int i = 1; i < path.corners.Length; i++)
+        float length = 0f;
+
+        for (int i = 1;
+             i < path.corners.Length;
+             i++)
         {
             length += Vector3.Distance(
                 path.corners[i - 1],
@@ -946,202 +872,125 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // =========================================================
-    // CHECK LINE OF SIGHT FROM AN ARBITRARY POSITION
-    // =========================================================
+    private void LookAtTarget(
+        Transform target)
+    {
+        if (target == null)
+            return;
 
-    private bool CanSeePlayerFromPosition(
+        LookAtPosition(target.position);
+    }
+
+
+    private void LookAtPosition(
         Vector3 position)
     {
-        if (player == null)
-            return false;
-
-        Vector3 eyePosition =
-            position + Vector3.up * 1.5f;
-
-        Vector3 playerPosition =
-            player.position + Vector3.up * 1.0f;
-
         Vector3 direction =
-            playerPosition - eyePosition;
-
-        float distance =
-            direction.magnitude;
-
-        if (distance > sightRange)
-            return false;
-
-        direction.Normalize();
-
-        RaycastHit hit;
-
-        if (Physics.Raycast(
-            eyePosition,
-            direction,
-            out hit,
-            distance,
-            sightBlockMask
-        ))
-        {
-            if (hit.transform == player ||
-                hit.transform.IsChildOf(player))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
-
-    // =========================================================
-    // PLAYER LINE OF SIGHT
-    // =========================================================
-
-    private bool CanSeePlayer()
-    {
-        if (player == null)
-            return false;
-
-        Vector3 eyePosition =
-            transform.position +
-            Vector3.up * 1.5f;
-
-        Vector3 playerPosition =
-            player.position +
-            Vector3.up * 1.0f;
-
-        Vector3 direction =
-            playerPosition - eyePosition;
-
-        float distance =
-            direction.magnitude;
-
-        // -----------------------------------------------------
-        // Too far away.
-        // -----------------------------------------------------
-
-        if (distance > sightRange)
-            return false;
-
-        Vector3 normalizedDirection =
-            direction.normalized;
-
-        // -----------------------------------------------------
-        // Field of view.
-        // -----------------------------------------------------
-
-        float angle =
-            Vector3.Angle(
-                transform.forward,
-                normalizedDirection
-            );
-
-        if (angle > sightAngle / 2f)
-            return false;
-
-        // -----------------------------------------------------
-        // Raycast.
-        // -----------------------------------------------------
-
-        RaycastHit hit;
-
-        if (Physics.Raycast(
-            eyePosition,
-            normalizedDirection,
-            out hit,
-            distance,
-            sightBlockMask
-        ))
-        {
-            if (hit.transform == player ||
-                hit.transform.IsChildOf(player))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
-
-    // =========================================================
-    // RANDOM WANDERING
-    // =========================================================
-
-    private void PickRandomDestination()
-    {
-        if (agent == null)
-            return;
-
-        Vector3 randomDirection =
-            Random.insideUnitSphere *
-            wanderRadius;
-
-        randomDirection += transform.position;
-
-        NavMeshHit hit;
-
-        if (NavMesh.SamplePosition(
-            randomDirection,
-            out hit,
-            wanderRadius,
-            NavMesh.AllAreas
-        ))
-        {
-            targetMove = null;
-
-            agent.isStopped = false;
-
-            agent.SetDestination(
-                hit.position
-            );
-        }
-    }
-
-
-    // =========================================================
-    // LOOK AT PLAYER
-    // =========================================================
-
-    private void LookAtPlayer()
-    {
-        if (player == null)
-            return;
-
-        Vector3 direction =
-            player.position -
+            position -
             transform.position;
 
         direction.y = 0f;
 
-        if (direction == Vector3.zero)
+        if (direction.sqrMagnitude < 0.001f)
             return;
 
-        Quaternion targetRotation =
+        Quaternion rotation =
             Quaternion.LookRotation(direction);
 
         transform.rotation =
             Quaternion.Slerp(
                 transform.rotation,
-                targetRotation,
+                rotation,
                 Time.deltaTime * 8f
             );
     }
 
 
-    // =========================================================
-    // SHOOT
-    // =========================================================
+    private void Dead()
+    {
+        agent.isStopped = true;
+    }
+
+
+    public void TakeDamage(int damage)
+    {
+        eneHealth -= damage;
+
+        if (eneHealth <= 0)
+        {
+            eneHealth = 0;
+            eneState = 0;
+            return;
+        }
+
+        if (player != null)
+        {
+            targetSearch = player;
+            lastSeePlayer = player.position;
+            lastSeeTimer = lastSeeSearchTime;
+
+            // Being attacked immediately puts armed enemies
+            // into combat.
+            if (hasGun || grenadeCount > 0)
+            {
+                PrepareCombat();
+            }
+            else if (hasStaff)
+            {
+                currentHidingSpot =
+                    FindBestHidingSpot();
+
+                if (currentHidingSpot != null)
+                    StartHiding();
+                else
+                    eneState = 5;
+            }
+            else
+            {
+                targetMove = player;
+                agent.isStopped = false;
+            }
+        }
+    }
+
+
+    public void SetGrabbed()
+    {
+        eneState = 4;
+        grabbedTimer = grabbedTime;
+        agent.isStopped = true;
+    }
+
+
+    private void ReturnToSearching()
+    {
+        eneState = 1;
+
+        targetMove = null;
+        currentCrouchSpot = null;
+        currentHidingSpot = null;
+
+        isInCrouchSpot = false;
+
+        agent.isStopped = false;
+
+        if (targetSearch == null &&
+            player != null)
+        {
+            targetSearch = player;
+        }
+    }
+
+
+    private void ReleaseHidingSpot()
+    {
+        currentHidingSpot = null;
+        hidingTimer = 0f;
+    }
+
 
     private void ShootAtPlayer()
     {
-        // Replace this with your actual gun system.
-
         Debug.Log(
             gameObject.name +
             " shoots at " +
@@ -1150,14 +999,8 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // =========================================================
-    // STAFF ATTACK
-    // =========================================================
-
     private void StaffAttack()
     {
-        // Replace this with your actual staff damage system.
-
         Debug.Log(
             gameObject.name +
             " swings at " +
@@ -1166,29 +1009,11 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // =========================================================
-    // GRENADE
-    // =========================================================
-
     private void ThrowGrenade()
     {
-        if (grenadePrefab == null)
+        if (grenadePrefab == null ||
+            grenadeSpawnPoint == null)
         {
-            Debug.LogWarning(
-                gameObject.name +
-                " tried to throw a grenade but has no grenadePrefab."
-            );
-
-            return;
-        }
-
-        if (grenadeSpawnPoint == null)
-        {
-            Debug.LogWarning(
-                gameObject.name +
-                " tried to throw a grenade but has no grenadeSpawnPoint."
-            );
-
             return;
         }
 
@@ -1208,8 +1033,6 @@ public class BasicEnemyControl : MonoBehaviour
                 player.position -
                 grenadeSpawnPoint.position;
 
-            direction.Normalize();
-
             direction.y += 0.35f;
 
             rb.AddForce(
@@ -1217,89 +1040,5 @@ public class BasicEnemyControl : MonoBehaviour
                 ForceMode.VelocityChange
             );
         }
-    }
-
-
-    // =========================================================
-    // DAMAGE
-    // =========================================================
-
-    public void TakeDamage(int damage)
-    {
-        eneHealth -= damage;
-
-        if (eneHealth <= 0)
-        {
-            eneHealth = 0;
-
-            eneState = 0;
-
-            return;
-        }
-
-        // Being attacked wakes the enemy.
-        if (player != null)
-        {
-            if (eneState == 1)
-            {
-                targetMove = player;
-
-                agent.isStopped = false;
-
-                agent.SetDestination(
-                    player.position
-                );
-            }
-        }
-    }
-
-
-    // =========================================================
-    // GRABBED
-    // =========================================================
-
-    public void SetGrabbed()
-    {
-        eneState = 4;
-
-        grabbedTimer = grabbedTime;
-
-        if (agent != null)
-        {
-            agent.isStopped = true;
-        }
-    }
-
-
-    // =========================================================
-    // RETURN TO SEARCHING
-    // =========================================================
-
-    private void ReturnToSearching()
-    {
-        eneState = 1;
-
-        targetMove = null;
-
-        isInCrouchSpot = false;
-
-        currentCrouchSpot = null;
-
-        currentHidingSpot = null;
-
-        if (agent != null)
-        {
-            agent.isStopped = false;
-        }
-    }
-
-
-    // =========================================================
-    // RELEASE HIDING SPOT
-    // =========================================================
-
-    private void ReleaseHidingSpot()
-    {
-        currentHidingSpot = null;
     }
 }
