@@ -29,6 +29,7 @@ public class PlayerMovement : MonoBehaviour
     public LayerMask groundLayer;
     public float maxGroundHeight = 10f;
     public float groundRaycastDistance = 100f;
+    private Vector3 velocity;
 
 
     void Start()
@@ -51,6 +52,7 @@ public class PlayerMovement : MonoBehaviour
     // Horizontal movement
     // -------------------------
 
+    
     float horizontal = Input.GetAxisRaw("Horizontal");
     float vertical = Input.GetAxisRaw("Vertical");
 
@@ -60,7 +62,14 @@ public class PlayerMovement : MonoBehaviour
 
     move.Normalize();
 
-    Vector3 velocity = move * moveSpeed;
+    if (GlobalPlayerVars.ArmState != 'B')
+    {
+    velocity = move * moveSpeed;
+    }
+    else
+    {
+    velocity = move * (moveSpeed / 2);
+    }
 
 
     // -------------------------
@@ -161,10 +170,6 @@ public class PlayerMovement : MonoBehaviour
 
         GlobalPlayerVars.ArmState = 'Z';
     }
-    else
-        {
-            GlobalPlayerVars.ArmState = 'R';
-        }
 
 
     // -------------------------
