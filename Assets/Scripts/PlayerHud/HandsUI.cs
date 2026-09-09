@@ -1,77 +1,47 @@
 using UnityEngine;
-using TMPro;
-using Unity.Collections;
 using UnityEngine.UI;
 
 public class HandsUI : MonoBehaviour
 {
     private RawImage image;
-    private char curAS;
+
     public Texture restingSprite;
     public Texture blockingSprite;
     public Texture attackingSprite;
     public Texture zoomingSprite;
 
-
     private float atkTimer = 0f;
+
     void Awake()
     {
         image = GetComponent<RawImage>();
     }
+
     void Start()
     {
-        curAS = GlobalPlayerVars.ArmState;
-        if (curAS == 'R')
-        {
-            image.texture = restingSprite;
-        }
-        else if (curAS == 'B')
-        {
-            image.texture = blockingSprite;
-        }
-        else if (curAS == 'A')
-        {
-            image.texture = attackingSprite;
-        }
-        else if (curAS == 'Z')
-        {
-            image.texture = zoomingSprite;
-        }
+        UpdateHandImage();
     }
 
-    // Update is called once per frame
     void Update()
     {
-        if (Input.GetKey(KeyCode.Mouse1))
+        // Blocking
+        if (Input.GetMouseButton(1))
         {
             GlobalPlayerVars.ArmState = 'B';
         }
-        if (Input.GetKeyDown(KeyCode.Mouse0) && GlobalPlayerVars.ArmState != 'A')
+        // Attacking
+        else if (Input.GetMouseButtonDown(0) && GlobalPlayerVars.ArmState != 'A')
         {
             basicAtkStart();
         }
-        curAS = GlobalPlayerVars.ArmState;
-        if (curAS == 'R')
-        {
-            image.texture = restingSprite;
-        }
-        else if (curAS == 'B')
-        {
-            image.texture = blockingSprite;
-        }
-        else if (curAS == 'A')
-        {
-            image.texture = attackingSprite;
-        }
-        else if (curAS == 'Z')
-        {
-            image.texture = zoomingSprite;
-        }
 
-        if (atkTimer >= -0.01f)
+        // Handle attack timer
+        if (atkTimer > 0f)
         {
             basicAtkHandler();
         }
+
+        UpdateHandImage();
     }
 
     public void basicAtkStart()
@@ -82,14 +52,38 @@ public class HandsUI : MonoBehaviour
 
     public void basicAtkHandler()
     {
-        if (atkTimer >= 0f)
+        atkTimer -= Time.deltaTime;
+
+        if (atkTimer <= 0f)
         {
-            atkTimer -= Time.deltaTime;
-            GlobalPlayerVars.ArmState = 'A';
+            atkTimer = 0f;
+            GlobalPlayerVars.ArmState = 'R';
         }
         else
         {
-            GlobalPlayerVars.ArmState = 'R';
+            GlobalPlayerVars.ArmState = 'A';
+        }
+    }
+
+    private void UpdateHandImage()
+    {
+        switch (GlobalPlayerVars.ArmState)
+        {
+            case 'R':
+                image.texture = restingSprite;
+                break;
+
+            case 'B':
+                image.texture = blockingSprite;
+                break;
+
+            case 'A':
+                image.texture = attackingSprite;
+                break;
+
+            case 'Z':
+                image.texture = zoomingSprite;
+                break;
         }
     }
 }

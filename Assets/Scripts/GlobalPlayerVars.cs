@@ -6,4 +6,5 @@ public class GlobalPlayerVars : MonoBehaviour
     public static float JetFuel = 100f;
     public static float PlayerHealth = 100f;
     public static char ArmState = 'R';
+    public static int PlayerDamage = 27;
 }

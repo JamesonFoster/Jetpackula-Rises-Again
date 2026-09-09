@@ -75,6 +75,8 @@ public class BasicEnemyControl : MonoBehaviour
     public GameObject grenadePrefab;
     public Transform grenadeSpawnPoint;
 
+    public int Blood = 5;
+
 
     private void Start()
     {
@@ -915,6 +917,12 @@ public class BasicEnemyControl : MonoBehaviour
     public void TakeDamage(int damage)
     {
         eneHealth -= damage;
+
+        if (Blood != 0)
+        {
+            Blood -= 1;
+            GlobalPlayerVars.BloodCount += 5;
+        }
 
         if (eneHealth <= 0)
         {
