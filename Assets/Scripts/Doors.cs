@@ -151,5 +151,9 @@ private IEnumerator Giggle()
     giggleCoroutine = null;
 }
 
+public void unlock()
+    {
+        isLocked = false;
+    }
 
 }

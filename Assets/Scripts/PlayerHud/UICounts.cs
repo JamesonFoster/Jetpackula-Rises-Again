@@ -4,7 +4,7 @@ using Unity.Collections;
 
 public class UICounts : MonoBehaviour
 {
-    public int BC = 0;
+    public float BC = 0;
     public float PH = 0f;
     public float FC = 0f;
     public char TellMode = 'B';

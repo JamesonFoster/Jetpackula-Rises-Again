@@ -58,6 +58,18 @@ public class BasicEnemyControl : MonoBehaviour
     public float shootCooldown = 1f;
     private float shootTimer;
 
+    public Transform gunMuzzle;
+    public float gunRayDistance = 50f;
+    public LayerMask gunRaycastMask;
+    public float gunRayVisibleTime = 0.08f;
+    public Color gunRayColor = Color.red;
+
+    public float shootAccuracy = 0.8f;
+    public float shootSpread = 3f;
+
+    private LineRenderer gunLine;
+    private float gunRayTimer;
+
     // Staff
     public float staffAttackDistance = 2.5f;
     public float staffAttackCooldown = 1.2f;
@@ -76,6 +88,13 @@ public class BasicEnemyControl : MonoBehaviour
     public Transform grenadeSpawnPoint;
 
     public int Blood = 5;
+
+    // Death fade
+    public float deathFadeTime = 2f;
+
+    private Animator animator;
+    private Renderer[] enemyRenderers;
+    private bool isDying;
 
 
     private void Start()
@@ -101,6 +120,23 @@ public class BasicEnemyControl : MonoBehaviour
             Random.Range(0f, wanderWaitTime);
 
         grenadeTimer = 0f;
+
+        animator = GetComponent<Animator>();
+
+        enemyRenderers =
+            GetComponentsInChildren<Renderer>();
+
+        gunLine = gameObject.AddComponent<LineRenderer>();
+
+        gunLine.positionCount = 2;
+        gunLine.startWidth = 0.03f;
+        gunLine.endWidth = 0.01f;
+        gunLine.material =
+            new Material(Shader.Find("Sprites/Default"));
+
+        gunLine.startColor = gunRayColor;
+        gunLine.endColor = gunRayColor;
+        gunLine.enabled = false;
     }
 
 
@@ -114,6 +150,17 @@ public class BasicEnemyControl : MonoBehaviour
 
         if (grenadeTimer > 0f)
             grenadeTimer -= Time.deltaTime;
+
+        if (gunRayTimer > 0f)
+        {
+            gunRayTimer -= Time.deltaTime;
+
+            if (gunRayTimer <= 0f &&
+                gunLine != null)
+            {
+                gunLine.enabled = false;
+            }
+        }
 
         switch (eneState)
         {
@@ -144,7 +191,6 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // Basic NavMesh movement.
     private bool TravelToBasic()
     {
         if (targetMove == null)
@@ -156,11 +202,11 @@ public class BasicEnemyControl : MonoBehaviour
         if (agent.pathPending)
             return false;
 
-        return agent.remainingDistance <= agent.stoppingDistance;
+        return agent.remainingDistance <=
+               agent.stoppingDistance;
     }
 
 
-    // Case 1.
     private void Searching()
     {
         agent.isStopped = false;
@@ -247,10 +293,10 @@ public class BasicEnemyControl : MonoBehaviour
 
         targetMove = player;
 
-        // Staff enemies hide when they first see the player.
         if (hasStaff)
         {
-            currentHidingSpot = FindBestHidingSpot();
+            currentHidingSpot =
+                FindBestHidingSpot();
 
             if (currentHidingSpot != null)
             {
@@ -259,14 +305,12 @@ public class BasicEnemyControl : MonoBehaviour
             }
         }
 
-        // Enemies with a gun or grenade enter combat.
         if (hasGun || grenadeCount > 0)
         {
             PrepareCombat();
             return;
         }
 
-        // No weapon. Chase the player.
         TravelToBasic();
     }
 
@@ -301,7 +345,6 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // Case 2.
     private void Combat()
     {
         if (player == null ||
@@ -311,7 +354,6 @@ public class BasicEnemyControl : MonoBehaviour
             return;
         }
 
-        // Player is visible.
         if (CanSeeTarget(player))
         {
             lastSeePlayer = player.position;
@@ -329,7 +371,6 @@ public class BasicEnemyControl : MonoBehaviour
                 player.position
             );
 
-        // Staff gets priority when very close.
         if (hasStaff &&
             distance <= staffAttackDistance)
         {
@@ -337,7 +378,6 @@ public class BasicEnemyControl : MonoBehaviour
             return;
         }
 
-        // Grenade can be used even if the enemy has a gun.
         if (grenadeCount > 0 &&
             grenadeTimer <= 0f &&
             distance <= grenadeDistance)
@@ -373,7 +413,6 @@ public class BasicEnemyControl : MonoBehaviour
             }
         }
 
-        // Gun attack.
         if (hasGun &&
             distance <= shootingDistance)
         {
@@ -409,7 +448,6 @@ public class BasicEnemyControl : MonoBehaviour
             return;
         }
 
-        // Armed enemy, but target is too far away.
         targetMove = player;
         TravelToBasic();
     }
@@ -426,7 +464,6 @@ public class BasicEnemyControl : MonoBehaviour
             return;
         }
 
-        // Try to reach a crouch spot first.
         if (currentCrouchSpot == null)
         {
             PrepareCombat();
@@ -446,7 +483,6 @@ public class BasicEnemyControl : MonoBehaviour
 
         agent.isStopped = true;
 
-        // Search around instead of wandering.
         transform.Rotate(
             Vector3.up,
             searchTurnSpeed * Time.deltaTime
@@ -488,7 +524,6 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // Case 3.
     private void Hiding()
     {
         if (!hasStaff)
@@ -503,13 +538,12 @@ public class BasicEnemyControl : MonoBehaviour
             return;
         }
 
-        targetMove = currentHidingSpot.transform;
+        targetMove =
+            currentHidingSpot.transform;
 
-        // Travel to the hiding spot.
         if (!TravelToBasic())
             return;
 
-        // Just arrived at the hiding spot.
         if (hidingTimer <= 0f)
         {
             agent.isStopped = true;
@@ -524,8 +558,6 @@ public class BasicEnemyControl : MonoBehaviour
             hidingTimer = hidingTime;
         }
 
-        // Hiding sensor: if they see the player,
-        // immediately leave hiding and swing.
         if (player != null &&
             CanSeeTarget(player))
         {
@@ -540,7 +572,6 @@ public class BasicEnemyControl : MonoBehaviour
 
         hidingTimer -= Time.deltaTime;
 
-        // Finished hiding.
         if (hidingTimer <= 0f)
         {
             ReleaseHidingSpot();
@@ -556,15 +587,13 @@ public class BasicEnemyControl : MonoBehaviour
 
         hidingTimer = 0f;
 
-        // Turn exactly 180 degrees from the
-        // direction they were facing when entering.
         hidingRotation =
             transform.eulerAngles.y + 180f;
 
         eneState = 3;
     }
 
-    // Case 4.
+
     private void Grabbed()
     {
         agent.isStopped = true;
@@ -576,7 +605,6 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    // Case 5.
     private void Swinging()
     {
         if (player == null || !hasStaff)
@@ -592,7 +620,6 @@ public class BasicEnemyControl : MonoBehaviour
         }
         else
         {
-            // Use the shared last-player-position search.
             if (lastSeePlayer.HasValue)
             {
                 lastSeeTimer -= Time.deltaTime;
@@ -657,6 +684,7 @@ public class BasicEnemyControl : MonoBehaviour
         if (staffAttackTimer <= 0f)
         {
             StaffAttack();
+
             staffAttackTimer =
                 staffAttackCooldown;
         }
@@ -874,8 +902,7 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    private void LookAtTarget(
-        Transform target)
+    private void LookAtTarget(Transform target)
     {
         if (target == null)
             return;
@@ -884,8 +911,7 @@ public class BasicEnemyControl : MonoBehaviour
     }
 
 
-    private void LookAtPosition(
-        Vector3 position)
+    private void LookAtPosition(Vector3 position)
     {
         Vector3 direction =
             position -
@@ -910,7 +936,70 @@ public class BasicEnemyControl : MonoBehaviour
 
     private void Dead()
     {
-        agent.isStopped = true;
+        if (isDying)
+            return;
+
+        isDying = true;
+
+        if (agent != null)
+        {
+            agent.isStopped = true;
+            agent.enabled = false;
+        }
+
+        if (animator != null)
+            animator.enabled = false;
+
+        StartCoroutine(FadeAndDestroy());
+    }
+
+
+    private System.Collections.IEnumerator FadeAndDestroy()
+    {
+        float timer = 0f;
+
+        Material[] materials =
+            new Material[enemyRenderers.Length];
+
+        for (int i = 0;
+             i < enemyRenderers.Length;
+             i++)
+        {
+            if (enemyRenderers[i] != null)
+                materials[i] =
+                    enemyRenderers[i].material;
+        }
+
+        while (timer < deathFadeTime)
+        {
+            timer += Time.deltaTime;
+
+            float alpha =
+                1f -
+                Mathf.Clamp01(
+                    timer / deathFadeTime
+                );
+
+            for (int i = 0;
+                 i < enemyRenderers.Length;
+                 i++)
+            {
+                if (enemyRenderers[i] == null ||
+                    materials[i] == null)
+                    continue;
+
+                Color color =
+                    materials[i].color;
+
+                color.a = alpha;
+
+                materials[i].color = color;
+            }
+
+            yield return null;
+        }
+
+        Destroy(gameObject);
     }
 
 
@@ -928,6 +1017,8 @@ public class BasicEnemyControl : MonoBehaviour
         {
             eneHealth = 0;
             eneState = 0;
+
+            Dead();
             return;
         }
 
@@ -937,8 +1028,6 @@ public class BasicEnemyControl : MonoBehaviour
             lastSeePlayer = player.position;
             lastSeeTimer = lastSeeSearchTime;
 
-            // Being attacked immediately puts armed enemies
-            // into combat.
             if (hasGun || grenadeCount > 0)
             {
                 PrepareCombat();
@@ -999,10 +1088,89 @@ public class BasicEnemyControl : MonoBehaviour
 
     private void ShootAtPlayer()
     {
-        Debug.Log(
-            gameObject.name +
-            " shoots at " +
-            player.name
+        if (player == null)
+            return;
+
+        Vector3 origin;
+
+        if (gunMuzzle != null)
+        {
+            origin = gunMuzzle.position;
+        }
+        else
+        {
+            origin =
+                transform.position +
+                Vector3.up * eyeHeight;
+        }
+
+        Vector3 targetPosition =
+            player.position +
+            Vector3.up * targetEyeHeight;
+
+        Vector3 direction =
+            (targetPosition - origin).normalized;
+
+        direction = Quaternion.Euler(
+            Random.Range(-shootSpread, shootSpread),
+            Random.Range(-shootSpread, shootSpread),
+            0f
+        ) * direction;
+
+        if (Random.value > shootAccuracy)
+        {
+            direction = Quaternion.Euler(
+                Random.Range(-15f, 15f),
+                Random.Range(-15f, 15f),
+                0f
+            ) * direction;
+        }
+
+        Ray ray =
+            new Ray(origin, direction);
+
+        RaycastHit hit;
+
+        Vector3 rayEnd =
+            origin +
+            direction * gunRayDistance;
+
+        if (Physics.Raycast(
+            ray,
+            out hit,
+            gunRayDistance,
+            gunRaycastMask,
+            QueryTriggerInteraction.Ignore))
+        {
+            rayEnd = hit.point;
+
+            if (hit.transform == player ||
+                hit.transform.IsChildOf(player))
+            {
+                if (GlobalPlayerVars.ArmState != 'B')
+                    GlobalPlayerVars.PlayerHealth -= 2;
+                else
+                    GlobalPlayerVars.PlayerHealth -= 1;
+            }
+        }
+
+        if (gunLine != null)
+        {
+            gunLine.SetPosition(0, origin);
+            gunLine.SetPosition(1, rayEnd);
+
+            gunLine.startColor = gunRayColor;
+            gunLine.endColor = gunRayColor;
+
+            gunLine.enabled = true;
+            gunRayTimer = gunRayVisibleTime;
+        }
+
+        Debug.DrawRay(
+            origin,
+            direction * gunRayDistance,
+            gunRayColor,
+            gunRayVisibleTime
         );
     }
 

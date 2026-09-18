@@ -47,7 +47,6 @@ public class HandsUI : MonoBehaviour
     public void basicAtkStart()
     {
         atkTimer = 0.4f;
-        GlobalPlayerVars.ArmState = 'A';
     }
 
     public void basicAtkHandler()
@@ -58,10 +57,6 @@ public class HandsUI : MonoBehaviour
         {
             atkTimer = 0f;
             GlobalPlayerVars.ArmState = 'R';
-        }
-        else
-        {
-            GlobalPlayerVars.ArmState = 'A';
         }
     }
 

@@ -16,4 +16,5 @@ public class CharacterTypes : ScriptableObject
     [Header("Text Settings")]
     public int textSpeed = 20;
     public float postTextWait = 5f;
+    public AudioClip textSound;
 }

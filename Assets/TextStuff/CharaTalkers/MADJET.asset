@@ -10,12 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23195df09aecd12419f9d457a70a4eb6, type: 3}
-  m_Name: JetThePackBoy
+  m_Name: MADJET
   m_EditorClassIdentifier: 
   noTalkingImage: {fileID: 2800000, guid: cc389af08b704e741af5a47169f395ef, type: 3}
   talkingImage: {fileID: 2800000, guid: 655a5956db813304298acf790aed9701, type: 3}
   rotationMax: 20
-  imageRotaSpeed: 0.2
-  talkingImageSpeed: 0.07
-  textSpeed: 17
-  postTextWait: 3
+  imageRotaSpeed: 0.05
+  talkingImageSpeed: 0.03
+  textSpeed: 152
+  postTextWait: 0.01
+  textSound: {fileID: 8300000, guid: 5720f2f8ebe915145855aa16c5a8ecb8, type: 3}

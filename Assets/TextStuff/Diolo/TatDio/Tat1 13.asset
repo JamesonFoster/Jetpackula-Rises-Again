@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b3bc52d16943c142ba78d554f68c8c0, type: 3}
+  m_Name: Tat1 13
+  m_EditorClassIdentifier: 
+  theText: Why in the world did you do this??!!!! are you frickling stupid JETPACKULAA!!!!!
+    you dont even know what this "beta" world is!! you know i bet someone is writing
+    this DIO right now at 10:14 in the afternoon because he's dreading having to
+    actually build this thing and put it on the stupid Itch because he hasnt read
+    all of the requirements and probobly missed something!!!!!!!!!!!!!!!!! anyways
+    are we just gonna keep falling forever? how long is this thing anyways. how long
+    can I ranble before i run out of things to say. yo bro. did you know that im
+    your brother that katana Joe almost killed and to save my life you turned me
+    into a jetpack... yeah... pretty funny bro. anyways imma list some random words
+    that you wouldn't understand unless you were that guy now at 10:18 writing this...
+    lets seen.... Bin Man, Turdle-erdl-man, Beanos, Ude, Yuzumpast, the old man,
+    general D, doctor Red, frick  I ran out of stuff....... okay.... I think the
+    insanity is gone.. what's is insanity again? something about expecting different
+    outcomes... anyways
+  nextText: {fileID: 11400000}

@@ -17,14 +17,16 @@ public class TextBoxes : MonoBehaviour
     public TMP_Text text;
     public string currentText = "none";
 
+    [Header("Sound Settings")]
+    public AudioSource audioSource;
+
     [Header("Current Dio")]
     public CharacterTypes charType;
     public DioScriptableObj dio;
 
     private Coroutine dioCoroutine;
 
-    private bool isTalking = true;
-    private bool isDioRunning = false;
+    public bool isDioRunning = false;
 
     private Quaternion originalRotation;
 
@@ -42,6 +44,11 @@ public class TextBoxes : MonoBehaviour
 
     public void StartDio(CharacterTypes chty, DioScriptableObj discob, bool firstDio = false)
     {
+        if (isDioRunning)
+            firstDio = false;
+        else
+            firstDio = true;
+
         if (dioCoroutine != null)
             StopCoroutine(dioCoroutine);
 
@@ -95,11 +102,17 @@ public class TextBoxes : MonoBehaviour
         float rotationTimer = 0f;
         float rotationDirection = 1f;
 
-        isTalking = true;
-
         while (text.text.Length < currentText.Length)
         {
+            // Print the next character
             text.text += currentText[text.text.Length];
+
+            // Play the text sound
+            if (audioSource != null)
+            {
+                audioSource.clip = charType.textSound;
+                audioSource.Play();
+            }
 
             if (talkingImage != null)
             {
@@ -140,8 +153,6 @@ public class TextBoxes : MonoBehaviour
 
             yield return new WaitForSeconds(characterDelay);
         }
-
-        isTalking = false;
 
         if (talkingImage != null)
         {
@@ -203,7 +214,6 @@ public class TextBoxes : MonoBehaviour
         }
 
         isDioRunning = false;
-        isTalking = false;
 
         charType = null;
         dio = null;

@@ -21,6 +21,8 @@ public class PlayerMovement : MonoBehaviour
     [Header("Forward Jet")]
     public float forwardBoostForce = 10f;
 
+    public GameObject deathScreen;
+
     private CharacterController controller;
 
     private float verticalVelocity;
@@ -42,144 +44,143 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        if (GlobalPlayerVars.PlayerHealth <= 0)
+        {
+            deathScreen.SetActive(true);
+            return;
+        }
+
         HandleMouseLook();
         HandleMovement();
+
+        if (Input.GetKey(KeyCode.R) &&
+            GlobalPlayerVars.BloodCount > 0f &&
+            GlobalPlayerVars.PlayerHealth < 100f)
+        {
+            float amount = Mathf.Min(
+                5f * Time.deltaTime,
+                GlobalPlayerVars.BloodCount,
+                100f - GlobalPlayerVars.PlayerHealth
+            );
+
+            GlobalPlayerVars.BloodCount -= amount;
+            GlobalPlayerVars.PlayerHealth += amount;
+        }
+
+        if (Input.GetKey(KeyCode.F) &&
+            GlobalPlayerVars.BloodCount > 0f &&
+            GlobalPlayerVars.JetFuel < 100f)
+        {
+            float amount = Mathf.Min(
+                5f * Time.deltaTime,
+                GlobalPlayerVars.JetFuel,
+                100f - GlobalPlayerVars.JetFuel
+            );
+
+            GlobalPlayerVars.BloodCount -= amount;
+            GlobalPlayerVars.JetFuel += amount;
+        }
     }
 
     void HandleMovement()
-{
-    // -------------------------
-    // Horizontal movement
-    // -------------------------
-
-    
-    float horizontal = Input.GetAxisRaw("Horizontal");
-    float vertical = Input.GetAxisRaw("Vertical");
-
-    Vector3 move =
-        transform.right * horizontal +
-        transform.forward * vertical;
-
-    move.Normalize();
-
-    if (GlobalPlayerVars.ArmState != 'B')
     {
-    velocity = move * moveSpeed;
-    }
-    else
-    {
-    velocity = move * (moveSpeed / 2);
-    }
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        float vertical = Input.GetAxisRaw("Vertical");
 
+        Vector3 move =
+            transform.right * horizontal +
+            transform.forward * vertical;
 
-    // -------------------------
-    // Ground height check
-    // -------------------------
+        move.Normalize();
 
-    RaycastHit groundHit;
-    bool hasGround =
-        Physics.Raycast(
-            transform.position,
-            Vector3.down,
-            out groundHit,
-            groundRaycastDistance,
-            groundLayer
-        );
-
-    float groundDistance = Mathf.Infinity;
-
-    if (hasGround)
-    {
-        groundDistance = groundHit.distance;
-    }
-
-
-    // -------------------------
-    // Grounding
-    // -------------------------
-
-    if (controller.isGrounded)
-    {
-        if (verticalVelocity < 0f)
+        if (GlobalPlayerVars.ArmState != 'B')
         {
-            verticalVelocity = groundedForce;
+            velocity = move * moveSpeed;
+        }
+        else
+        {
+            velocity = move * (moveSpeed / 2);
         }
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        RaycastHit groundHit;
+        bool hasGround =
+            Physics.Raycast(
+                transform.position,
+                Vector3.down,
+                out groundHit,
+                groundRaycastDistance,
+                groundLayer
+            );
+
+        float groundDistance = Mathf.Infinity;
+
+        if (hasGround)
         {
-            verticalVelocity =
-                Mathf.Sqrt(jumpHeight * -2f * gravity);
+            groundDistance = groundHit.distance;
         }
-    }
 
+        if (controller.isGrounded)
+        {
+            if (verticalVelocity < 0f)
+            {
+                verticalVelocity = groundedForce;
+            }
 
-    // -------------------------
-    // Gravity + Jetpack
-    // -------------------------
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                verticalVelocity =
+                    Mathf.Sqrt(jumpHeight * -2f * gravity);
+            }
+        }
 
-    if (!controller.isGrounded)
-    {
-        verticalVelocity += gravity * Time.deltaTime;
+        if (!controller.isGrounded)
+        {
+            verticalVelocity += gravity * Time.deltaTime;
 
-        if (Input.GetKey(KeyCode.Space) &&
+            if (Input.GetKey(KeyCode.Space) &&
+                GlobalPlayerVars.JetFuel > 0f)
+            {
+                verticalVelocity +=
+                    jetpackAcceleration * Time.deltaTime;
+
+                verticalVelocity = Mathf.Min(
+                    verticalVelocity,
+                    jetpackMaxUpwardSpeed
+                );
+
+                GlobalPlayerVars.JetFuel -=
+                    jetFuelUseRate * Time.deltaTime;
+
+                GlobalPlayerVars.JetFuel =
+                    Mathf.Max(GlobalPlayerVars.JetFuel, 0f);
+            }
+        }
+
+        if (hasGround &&
+            groundDistance >= maxGroundHeight &&
+            verticalVelocity > 0f)
+        {
+            verticalVelocity = 0f;
+        }
+
+        if (Input.GetKey(KeyCode.LeftShift) &&
             GlobalPlayerVars.JetFuel > 0f)
         {
-            verticalVelocity +=
-                jetpackAcceleration * Time.deltaTime;
-
-            verticalVelocity = Mathf.Min(
-                verticalVelocity,
-                jetpackMaxUpwardSpeed
-            );
+            velocity += transform.forward * forwardBoostForce;
 
             GlobalPlayerVars.JetFuel -=
                 jetFuelUseRate * Time.deltaTime;
 
             GlobalPlayerVars.JetFuel =
                 Mathf.Max(GlobalPlayerVars.JetFuel, 0f);
+
+            GlobalPlayerVars.ArmState = 'Z';
         }
+
+        velocity.y = verticalVelocity;
+
+        controller.Move(velocity * Time.deltaTime);
     }
-
-
-    // -------------------------
-    // Maximum height
-    // -------------------------
-
-    if (hasGround &&
-        groundDistance >= maxGroundHeight &&
-        verticalVelocity > 0f)
-    {
-        verticalVelocity = 0f;
-    }
-
-
-    // -------------------------
-    // Forward jet
-    // -------------------------
-
-    if (Input.GetKey(KeyCode.LeftShift) &&
-        GlobalPlayerVars.JetFuel > 0f)
-    {
-        velocity += transform.forward * forwardBoostForce;
-
-        GlobalPlayerVars.JetFuel -=
-            jetFuelUseRate * Time.deltaTime;
-
-        GlobalPlayerVars.JetFuel =
-            Mathf.Max(GlobalPlayerVars.JetFuel, 0f);
-
-        GlobalPlayerVars.ArmState = 'Z';
-    }
-
-
-    // -------------------------
-    // Apply movement once
-    // -------------------------
-
-    velocity.y = verticalVelocity;
-
-    controller.Move(velocity * Time.deltaTime);
-}
 
 
     void HandleMouseLook()

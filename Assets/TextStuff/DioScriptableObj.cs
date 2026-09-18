@@ -4,7 +4,7 @@ using UnityEngine.UI;
 [CreateAssetMenu(fileName = "Dio", menuName = "Scriptable Objects/Dio")]
 public class DioScriptableObj : ScriptableObject
 {
-    [Header("The Text")]
+    [TextArea]
     public string theText;
 
     [Header("Next Text")]
